@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "118958486219",
+    "project_id": "team-workspace-215f2",
+    "storage_bucket": "team-workspace-215f2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:118958486219:android:a06eec8e2186a4bb63e14e",
+        "android_client_info": {
+          "package_name": "com.example.team_workspace"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDWhuIQc7CxSQHdcWCV7HX6y2IW1LP_qRc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
