@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 class CustomDropdownFormField<T> extends StatelessWidget {
-  final T initialValue;
+  // initialValue may not be present in `items` (e.g. loaded from an entity/DB/API).
+  // Keep it nullable and, if it's not present, inject it into the items list so
+  // DropdownButtonFormField's assertion is satisfied.
+  final T? initialValue;
   final List<T> items;
   final String Function(T) itemLabel;
   final void Function(T?) onChanged;
@@ -11,7 +14,7 @@ class CustomDropdownFormField<T> extends StatelessWidget {
 
   const CustomDropdownFormField({
     Key? key,
-    required this.initialValue,
+    this.initialValue,
     required this.items,
     required this.itemLabel,
     required this.onChanged,
@@ -22,9 +25,16 @@ class CustomDropdownFormField<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Ensure the DropdownButtonFormField items contain the initialValue (if any).
+    // If initialValue is not present in the provided items, prepend it so the
+    // underlying DropdownButton won't assert.
+    final List<T> itemsForDropdown = (initialValue != null && !items.contains(initialValue))
+        ? [initialValue as T, ...items]
+        : items;
+
     return DropdownButtonFormField<T>(
-      initialValue: initialValue,
-      items: items
+      initialValue: itemsForDropdown.contains(initialValue) ? initialValue : null,
+      items: itemsForDropdown
           .map((item) => DropdownMenuItem<T>(
                 value: item,
                 child: Text(itemLabel(item)),
