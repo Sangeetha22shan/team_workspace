@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:get_it/get_it.dart';
-import 'package:team_workspace/core/constants/app_constants.dart';
-import 'package:team_workspace/core/database/database_helper.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:team_workspace/core/widgets/app_snackbar.dart';
+import '../bloc/task_bloc.dart';
+import 'edit_task_page.dart';
 
 import '../../domain/entities/task.dart';
-import '../../data/models/task_model.dart';
 
 
 class TaskDetailPage extends StatefulWidget {
@@ -30,31 +30,28 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
   }
 
   void _toggleTaskStatus() async {
-    final newStatus = _currentTask.status == TaskStatus.completed
-        ? TaskStatus.pending
-        : TaskStatus.completed;
+    final newStatus = _currentTask.status == 'Completed' ? 'Pending' : 'Completed';
 
     final updatedTask = _currentTask.copyWith(status: newStatus);
 
-    // Update in SQLite database
+    // Update UI immediately
+    setState(() => _currentTask = updatedTask);
+
+    // Dispatch event to persist change and update list UI via BLoC
     try {
-      final dbHelper = GetIt.instance<DatabaseHelper>();
-      final taskModel = TaskModel.fromEntity(updatedTask);
-      final taskMap = taskModel.toJson();
-
-      await dbHelper.updateTask(taskMap);
-
-      setState(() => _currentTask = updatedTask);
+      context.read<TaskBloc>().add(UpdateTaskEvent(task: updatedTask));
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Task updated successfully')),
-        );
+        AppSnackBar.show(context, 'Task updated', type: AppSnackBarType.success);
       }
     } catch (e) {
+      // If dispatching fails, revert UI and show error
+      setState(() => _currentTask = _currentTask.copyWith(status: _currentTask.status));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating task: $e')),
+        AppSnackBar.show(
+          context,
+          'Error updating task: $e',
+          type: AppSnackBarType.error,
         );
       }
     }
@@ -62,9 +59,24 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Task Details'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () async {
+              final result = await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => EditTaskPage(task: _currentTask)),
+              );
+
+              if (result is Task) {
+                setState(() => _currentTask = result);
+              }
+            },
+          ),
+        ],
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -86,12 +98,28 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
             Row(
               children: [
                 Chip(
-                  label: Text(_currentTask.status),
+                  label: Text(
+                    _currentTask.status,
+                    style: TextStyle(
+                      color: _contrastingTextColor(
+                        _getStatusColor(_currentTask.status),
+                        context,
+                      ),
+                    ),
+                  ),
                   backgroundColor: _getStatusColor(_currentTask.status),
                 ),
                 const SizedBox(width: 8),
                 Chip(
-                  label: Text(_currentTask.priority),
+                  label: Text(
+                    _currentTask.priority,
+                    style: TextStyle(
+                      color: _contrastingTextColor(
+                        _getPriorityColor(_currentTask.priority),
+                        context,
+                      ),
+                    ),
+                  ),
                   backgroundColor: _getPriorityColor(_currentTask.priority),
                 ),
               ],
@@ -111,17 +139,22 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
             const SizedBox(height: 16),
 
             // Description
-            const Text(
+            Text(
               'Description',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.titleMedium?.color,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               _currentTask.description,
-              style: const TextStyle(fontSize: 16, height: 1.5),
+              style: TextStyle(
+                fontSize: 16,
+                height: 1.5,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
             ),
             const SizedBox(height: 32),
 
@@ -132,12 +165,12 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
               child: ElevatedButton(
                 onPressed: _toggleTaskStatus,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _currentTask.status == TaskStatus.completed
+                  backgroundColor: _currentTask.status == 'Completed'
                       ? Colors.orange
                       : Colors.green,
                 ),
                 child: Text(
-                  _currentTask.status == TaskStatus.completed
+                  _currentTask.status == 'Completed'
                       ? 'Reopen Task'
                       : 'Mark as Completed',
                 ),
@@ -155,16 +188,16 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
-            color: Colors.grey,
+            color: Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           value,
-          style: const TextStyle(fontSize: 16),
+          style: TextStyle(fontSize: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
         ),
       ],
     );
@@ -172,9 +205,9 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case TaskStatus.completed:
+      case 'Completed':
         return Colors.green.shade200;
-      case TaskStatus.inProgress:
+      case 'In Progress':
         return Colors.orange.shade200;
       default:
         return Colors.grey.shade200;
@@ -183,12 +216,22 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
 
   Color _getPriorityColor(String priority) {
     switch (priority) {
-      case TaskPriority.high:
+      case 'High':
         return Colors.red.shade200;
-      case TaskPriority.medium:
+      case 'Medium':
         return Colors.orange.shade200;
       default:
         return Colors.green.shade200;
+    }
+  }
+
+  Color _contrastingTextColor(Color background, BuildContext context) {
+    // Use Flutter's brightness estimator to pick a readable text color
+    final brightness = ThemeData.estimateBrightnessForColor(background);
+    if (brightness == Brightness.dark) {
+      return Colors.white;
+    } else {
+      return Colors.black;
     }
   }
 }

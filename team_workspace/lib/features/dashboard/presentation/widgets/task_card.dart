@@ -14,6 +14,7 @@ class TaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Card(
@@ -29,10 +30,10 @@ class TaskCard extends StatelessWidget {
                 children: [
                   Text(
                     '#${task.id}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.black54,
+                      color: (theme.textTheme.bodySmall?.color ?? Colors.black54).withAlpha((0.8 * 255).round()),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -50,7 +51,10 @@ class TaskCard extends StatelessWidget {
                   Chip(
                     label: Text(
                       task.priority,
-                      style: const TextStyle(fontSize: 10),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: _contrastingTextColor(_getPriorityColor(task.priority), context),
+                      ),
                     ),
                     backgroundColor: _getPriorityColor(task.priority),
                     padding: EdgeInsets.zero,
@@ -60,10 +64,12 @@ class TaskCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(task.status).withValues(alpha: 0.2),
+                      color: _getStatusColor(task.status).withAlpha((0.12 * 255).round()),
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
-                        color: _getStatusColor(task.status),
+                        color: (theme.brightness == Brightness.dark && task.status.toLowerCase() == 'pending')
+                            ? Colors.red
+                            : _getStatusColor(task.status),
                         width: 0.5,
                       ),
                     ),
@@ -72,7 +78,9 @@ class TaskCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
-                        color: _getStatusColor(task.status),
+                        color: (theme.brightness == Brightness.dark && task.status.toLowerCase() == 'pending')
+                            ? Colors.white
+                            : _contrastingTextColor(_getStatusColor(task.status), context),
                       ),
                     ),
                   ),
@@ -95,9 +103,9 @@ class TaskCard extends StatelessWidget {
                 task.description,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: Colors.black87,
+                  color: theme.textTheme.bodyMedium?.color ?? Colors.black87,
                 ),
               ),
               const SizedBox(height: 10),
@@ -108,7 +116,7 @@ class TaskCard extends StatelessWidget {
                   Expanded(
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
+                        Icon(Icons.calendar_today, size: 14, color: (theme.iconTheme.color ?? Colors.grey).withAlpha((0.6 * 255).round())),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
@@ -129,7 +137,7 @@ class TaskCard extends StatelessWidget {
                   Expanded(
                     child: Row(
                       children: [
-                        const Icon(Icons.person, size: 14, color: Colors.grey),
+                        Icon(Icons.person, size: 14, color: (theme.iconTheme.color ?? Colors.grey).withAlpha((0.6 * 255).round())),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
@@ -151,7 +159,7 @@ class TaskCard extends StatelessWidget {
               // Footer with arrow
               Align(
                 alignment: Alignment.centerRight,
-                child: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                child: Icon(Icons.arrow_forward_ios, size: 14, color: (theme.iconTheme.color ?? Colors.grey).withAlpha((0.6 * 255).round())),
               ),
             ],
           ),
@@ -195,5 +203,10 @@ class TaskCard extends StatelessWidget {
       default:
         return Icons.schedule;
     }
+  }
+
+  Color _contrastingTextColor(Color background, BuildContext context) {
+    final brightness = ThemeData.estimateBrightnessForColor(background);
+    return brightness == Brightness.dark ? Colors.white : Colors.black;
   }
 }

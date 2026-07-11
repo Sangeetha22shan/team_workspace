@@ -1,7 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-
-import '../../../../core/network/network_info.dart';
 import '../../domain/entities/task.dart';
 import '../../domain/usecases/dashboard_usecase.dart';
 
@@ -47,6 +45,36 @@ class SearchTasksEvent extends TaskEvent {
 
 class ResetTasksEvent extends TaskEvent {
   const ResetTasksEvent();
+}
+
+class UpdateTaskEvent extends TaskEvent {
+  final Task task;
+
+  const UpdateTaskEvent({required this.task});
+
+  @override
+  List<Object?> get props => [task];
+}
+
+class CreateTaskEvent extends TaskEvent {
+  final Task task;
+
+  const CreateTaskEvent({required this.task});
+
+  @override
+  List<Object?> get props => [task];
+}
+
+/// Event used by the UI to update the BLoC state with a task that was already
+/// persisted by the caller. This prevents double-persisting when the form
+/// creates the task directly and also wants the BLoC to refresh its list.
+class AddTaskToStateEvent extends TaskEvent {
+  final Task task;
+
+  const AddTaskToStateEvent({required this.task});
+
+  @override
+  List<Object?> get props => [task];
 }
 
 class ConnectivityChangedEvent extends TaskEvent {
@@ -132,27 +160,31 @@ class TaskOfflineState extends TaskState {
 // BLoC
 class TaskBloc extends Bloc<TaskEvent, TaskState> {
   final DashboardUseCase dashboardUseCase;
-  final NetworkInfo networkInfo;
 
+  // Team members list for task assignment
+  static const List<String> teamMembers = [
+    'Unassigned',
+    'John Doe',
+    'Jane Smith',
+    'Mike Johnson',
+    'Sarah Williams',
+    'Robert Brown',
+    'Emily Davis',
+  ];
 
   TaskBloc({
     required this.dashboardUseCase,
-    required this.networkInfo,
   }) : super(const TaskInitialState()) {
     on<GetTasksEvent>(_onGetTasks);
     on<SearchTasksEvent>(_onSearchTasks);
     on<ResetTasksEvent>(_onReset);
+    on<UpdateTaskEvent>(_onUpdateTask);
+    on<CreateTaskEvent>(_onCreateTask);
+    on<AddTaskToStateEvent>(_onAddTaskToState);
     on<ConnectivityChangedEvent>(_onConnectivityChanged);
     
-    // Listen to connectivity changes
-    _setupConnectivityListener();
   }
 
-  void _setupConnectivityListener() {
-    networkInfo.onConnectivityChanged.listen((isConnected) {
-      add(ConnectivityChangedEvent(isConnected));
-    });
-  }
 
   Future<void> _onConnectivityChanged(
     ConnectivityChangedEvent event,
@@ -259,6 +291,75 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
           ),
         );
      }
+
+      Future<void> _onUpdateTask(
+        UpdateTaskEvent event,
+        Emitter<TaskState> emit,
+      ) async {
+        final updatedTask = event.task;
+
+        // Optimistically update UI if we have loaded tasks
+        List<Task>? previousTasks;
+        if (state is TaskLoadedState) {
+          final currentState = state as TaskLoadedState;
+          previousTasks = currentState.tasks;
+          final updatedTasks = currentState.tasks
+              .map((t) => t.id == updatedTask.id ? updatedTask : t)
+              .toList();
+          emit(currentState.copyWith(tasks: updatedTasks));
+        }
+
+        // Persist change via use case
+        final result = await dashboardUseCase.updateTask(task: updatedTask);
+        result.fold((failure) {
+          // Revert UI on failure
+          if (previousTasks != null) {
+            emit(TaskLoadedState(tasks: previousTasks));
+          }
+          emit(TaskErrorState(message: failure.message, code: failure.code));
+        }, (task) {
+          // Success: nothing else to do, UI already reflects change
+        });
+      }
+
+      Future<void> _onCreateTask(
+        CreateTaskEvent event,
+        Emitter<TaskState> emit,
+      ) async {
+        try {
+          // Call use case to persist
+          final result = await dashboardUseCase.createTask(task: event.task);
+
+          result.fold((failure) {
+            emit(TaskErrorState(message: failure.message, code: failure.code));
+          }, (createdTask) {
+            // Insert newly created task at the front of the list if loaded
+            if (state is TaskLoadedState) {
+              final currentState = state as TaskLoadedState;
+              final updated = [createdTask, ...currentState.tasks];
+              emit(currentState.copyWith(tasks: updated));
+            } else {
+              emit(TaskLoadedState(tasks: [createdTask], hasReachedMax: false, currentPage: 1));
+            }
+          });
+        } catch (e) {
+          emit(const TaskErrorState(message: 'Failed to create task'));
+        }
+      }
+
+      Future<void> _onAddTaskToState(
+        AddTaskToStateEvent event,
+        Emitter<TaskState> emit,
+      ) async {
+        // Simply update the current loaded state by prepending the task.
+        if (state is TaskLoadedState) {
+          final currentState = state as TaskLoadedState;
+          final updated = [event.task, ...currentState.tasks];
+          emit(currentState.copyWith(tasks: updated));
+        } else {
+          emit(TaskLoadedState(tasks: [event.task], hasReachedMax: false, currentPage: 1));
+        }
+      }
 
   Future<void> _onReset(
       ResetTasksEvent event,

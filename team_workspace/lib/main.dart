@@ -1,9 +1,9 @@
-import 'dart:async';
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:team_workspace/core/network/network_info.dart';
+import 'package:team_workspace/core/network/connectivity_bloc.dart';
+import 'package:team_workspace/core/theme/theme_cubit.dart';
+import 'package:team_workspace/core/analytics/analytics_service.dart';
 
 import 'package:team_workspace/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:team_workspace/features/auth/presentation/pages/login_page.dart';
@@ -31,24 +31,6 @@ class TeamWorkspaceApp extends StatefulWidget {
 }
 
 class _TeamWorkspaceAppState extends State<TeamWorkspaceApp> {
-  bool _isOnline = true;
-  late final StreamSubscription<bool> _connectivitySub;
-
-  @override
-  void initState() {
-    super.initState();
-    // Listen globally to connectivity changes and expose as state to children
-    _connectivitySub = getIt<NetworkInfo>().onConnectivityChanged.listen((connected) {
-      if (mounted) setState(() => _isOnline = connected);
-    });
-  }
-
-  @override
-  void dispose() {
-    _connectivitySub.cancel();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
@@ -59,27 +41,66 @@ class _TeamWorkspaceAppState extends State<TeamWorkspaceApp> {
         BlocProvider<TaskBloc>(
           create: (context) => getIt<TaskBloc>(),
         ),
+        BlocProvider<ConnectivityBloc>(
+          create: (context) => getIt<ConnectivityBloc>(),
+        ),
+        BlocProvider<ThemeCubit>(
+          create: (context) => getIt<ThemeCubit>(),
+        ),
       ],
-      child: MaterialApp(
-        title: 'Team Workspace',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.blue,
-          ),
-          useMaterial3: true,
-        ),
-        home: BlocBuilder<AuthBloc, AuthState>(
-          builder: (context, state) {
-            if (state is AuthAuthenticatedState) {
-              return DashboardPage(isOnline: _isOnline);
-            }
-            return const LoginPage();
-          },
-        ),
-        routes: {
-          '/login': (context) => const LoginPage(),
-          '/dashboard': (context) => DashboardPage(isOnline: _isOnline),
+      child: BlocBuilder<ThemeCubit, ThemeMode>(
+        builder: (context, themeMode) {
+          return MaterialApp(
+            title: 'Team Workspace',
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.blue,
+              ),
+              useMaterial3: true,
+            ),
+            darkTheme: ThemeData.dark().copyWith(
+              useMaterial3: true,
+            ),
+            themeMode: themeMode,
+            home: MultiBlocListener(
+              listeners: [
+                // Listen to connectivity changes and dispatch to interested blocs
+                BlocListener<ConnectivityBloc, ConnectivityState>(
+                  listener: (context, state) {
+                    final isOnline = state is ConnectivityConnected;
+                    // Inform TaskBloc about connectivity changes
+                    context.read<TaskBloc>().add(ConnectivityChangedEvent(isOnline));
+                    // Log connectivity change to analytics if available
+                    final analytics = getIt.isRegistered<AnalyticsService>() ? getIt<AnalyticsService>() : null;
+                    analytics?.logEvent('connectivity_change', parameters: {'is_online': isOnline});
+                  },
+                ),
+              ],
+              child: BlocBuilder<AuthBloc, AuthState>(
+                builder: (context, state) {
+                  if (state is AuthAuthenticatedState) {
+                    return BlocBuilder<ConnectivityBloc, ConnectivityState>(
+                      builder: (context, connState) {
+                        final isOnline = connState is ConnectivityConnected;
+                        return DashboardPage(isOnline: isOnline);
+                      },
+                    );
+                  }
+                  return const LoginPage();
+                },
+              ),
+            ),
+            routes: {
+              '/login': (context) => const LoginPage(),
+              '/dashboard': (context) => BlocBuilder<ConnectivityBloc, ConnectivityState>(
+                builder: (context, connState) {
+                  final isOnline = connState is ConnectivityConnected;
+                  return DashboardPage(isOnline: isOnline);
+                },
+              ),
+            },
+          );
         },
       ),
     );

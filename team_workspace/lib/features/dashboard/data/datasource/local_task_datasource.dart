@@ -16,6 +16,10 @@ abstract class LocalTaskDataSource {
   Future<void> cacheTask(TaskModel task);
 
   Future<TaskModel?> getCachedTask(int id);
+
+  /// Insert a new task into local storage and return the created TaskModel
+  /// with the assigned id from the database.
+  Future<TaskModel> createTask(TaskModel task);
 }
 
 class LocalTaskDataSourceImpl implements LocalTaskDataSource {
@@ -26,10 +30,6 @@ class LocalTaskDataSourceImpl implements LocalTaskDataSource {
   @override
   Future<void> cacheAllTasks(List<TaskModel> tasks) async {
     try {
-      // Clear existing tasks first
-      await databaseHelper.deleteAllTasks();
-
-      // Insert all new tasks
       final taskMaps = tasks.map((task) => task.toJson()).toList();
       await databaseHelper.insertAllTasks(taskMaps);
     } catch (e) {
@@ -85,6 +85,40 @@ class LocalTaskDataSourceImpl implements LocalTaskDataSource {
       return TaskModel.fromJson(taskMap);
     } catch (e) {
       throw CacheException('Failed to get cached task: $e');
+    }
+  }
+
+  @override
+  Future<TaskModel> createTask(TaskModel task) async {
+    try {
+      final taskMap = Map<String, dynamic>.from(task.toJson());
+
+      // Remove id if it's null or zero so the DB auto-assigns one
+      if (taskMap['id'] == null || taskMap['id'] == 0) {
+        taskMap.remove('id');
+      }
+
+      final newId = await databaseHelper.insertTask(taskMap);
+
+      if (newId <= 0) {
+        throw CacheException('Database did not return a valid inserted id');
+      }
+
+      // Some SQLite configurations / platform differences can cause the
+      // returned insert id to not be queryable via a subsequent SELECT in
+      // certain edge cases (e.g. when inserting with REPLACE or when the
+      // id column is provided). Instead of relying on reading back from the
+      // DB, use the taskMap we just inserted but ensure the id matches the
+      // returned id. This is safe because the map represents the persisted
+      // payload and avoids a race where getTaskById may return null on some
+      // platforms.
+      taskMap['id'] = newId;
+      return TaskModel.fromJson(taskMap);
+    } on CacheException {
+      rethrow;
+    } catch (e) {
+      // Provide a readable message for higher layers
+      throw CacheException('Failed to create task: $e');
     }
   }
 }

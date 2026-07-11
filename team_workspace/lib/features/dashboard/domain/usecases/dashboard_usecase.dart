@@ -29,5 +29,17 @@ class DashboardUseCase {
       priorityFilter: priorityFilter,
     );
   }
+
+  Future<Either<Failure, Task>> updateTask({
+    required Task task,
+  }) {
+    return repository.updateTask(task);
+  }
+
+  Future<Either<Failure, Task>> createTask({
+    required Task task,
+  }) {
+    return repository.createTask(task);
+  }
 }
 

@@ -4,6 +4,7 @@ import 'package:team_workspace/core/error/failures.dart';
 import 'package:team_workspace/core/network/network_info.dart';
 
 import '../../domain/entities/task.dart';
+import '../models/task_model.dart';
 import '../../domain/repositories/task_repository.dart';
 import '../datasource/local_task_datasource.dart';
 import '../datasource/remote_task_datasource.dart';
@@ -87,6 +88,33 @@ class TaskRepositoryImpl implements TaskRepository {
       return Left(CacheFailure(message: e.message));
     } catch (e) {
       return Left(UnknownFailure(message: 'An unexpected error occurred'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Task>> updateTask(Task task) async {
+    try {
+      // Persist to local cache (DB)
+      final taskModel = TaskModel.fromEntity(task);
+      await localDataSource.cacheTask(taskModel);
+      return Right(task);
+    } on CacheException catch (e) {
+      return Left(CacheFailure(message: e.message));
+    } catch (e) {
+      return Left(UnknownFailure(message: 'Failed to update task'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Task>> createTask(Task task) async {
+    try {
+      final taskModel = TaskModel.fromEntity(task);
+      final created = await localDataSource.createTask(taskModel);
+      return Right(created);
+    } on CacheException catch (e) {
+      return Left(CacheFailure(message: e.message));
+    } catch (e) {
+      return Left(UnknownFailure(message: 'Failed to create task: $e'));
     }
   }
 

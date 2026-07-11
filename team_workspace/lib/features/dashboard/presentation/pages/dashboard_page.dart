@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:team_workspace/core/constants/app_constants.dart';
 import 'package:team_workspace/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:team_workspace/core/theme/theme_cubit.dart';
 import 'package:team_workspace/features/dashboard/presentation/pages/task_detail_page.dart';
 import '../../domain/entities/task.dart';
 import '../bloc/task_bloc.dart';
@@ -10,6 +11,7 @@ import '../widgets/search_tasks_widget.dart';
 import '../widgets/error_state_widget.dart';
 import '../widgets/offline_error_state_widget.dart';
 import '../widgets/empty_state_widget.dart';
+import 'create_task_page.dart';
 
 
 class DashboardPage extends StatefulWidget {
@@ -102,10 +104,37 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          // Open create task form
+          await Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const CreateTaskPage()),
+          );
+        },
+        child: const Icon(Icons.add),
+      ),
       appBar: AppBar(
         title: const Text('Dashboard'),
         centerTitle: true,
         actions: [
+          // Theme toggle
+          BlocBuilder<ThemeCubit, ThemeMode>(
+            builder: (context, mode) {
+              final isDark = mode == ThemeMode.dark;
+              return IconButton(
+                icon: Icon(isDark ? Icons.dark_mode : Icons.light_mode),
+                onPressed: () {
+                  // Toggle between light and dark. If currently system, switch to dark.
+                  if (mode == ThemeMode.dark) {
+                    context.read<ThemeCubit>().setDarkMode(false);
+                  } else {
+                    context.read<ThemeCubit>().setDarkMode(true);
+                  }
+                },
+              );
+            },
+          ),
+          // Debug button removed per user request
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {

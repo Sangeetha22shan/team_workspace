@@ -1,8 +1,12 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:get_it/get_it.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:team_workspace/core/analytics/analytics_service.dart';
+import 'package:team_workspace/core/network/connectivity_bloc.dart';
+import 'package:team_workspace/core/theme/theme_cubit.dart';
 import 'package:team_workspace/core/network/dio_client.dart';
 import 'package:team_workspace/core/config/app_config.dart';
 import 'package:team_workspace/core/network/network_info.dart';
@@ -33,9 +37,23 @@ Future<void> setupServiceLocator() async {
   final sharedPreferences = await SharedPreferences.getInstance();
   getIt.registerSingleton<SharedPreferences>(sharedPreferences);
 
-  getIt.registerSingleton<Logger>(Logger());
+  // Configure Logger with a PrettyPrinter for consistent structured logs
+  getIt.registerSingleton<Logger>(
+    Logger(
+      printer: PrettyPrinter(
+        methodCount: 0,
+        errorMethodCount: 5,
+        lineLength: 80,
+        colors: true,
+      ),
+    ),
+  );
+
+  // Connectivity instance used by the ConnectivityBloc and NetworkInfo
   getIt.registerSingleton<Connectivity>(Connectivity());
   getIt.registerSingleton<FirebaseAuth>(FirebaseAuth.instance);
+
+  getIt.registerSingleton<AnalyticsService>(AnalyticsService(getIt<Logger>()));
 
   // Database Helper for task storage
   getIt.registerSingleton<DatabaseHelper>(DatabaseHelper());
@@ -49,9 +67,7 @@ Future<void> setupServiceLocator() async {
   );
 
   // Network Info
-  getIt.registerSingleton<NetworkInfo>(
-    NetworkInfoImpl(getIt<Connectivity>()),
-  );
+  getIt.registerSingleton<NetworkInfo>(NetworkInfoImpl(getIt<Connectivity>()));
 
   // Auth Data Sources
   getIt.registerSingleton<FirebaseAuthDataSource>(
@@ -75,11 +91,7 @@ Future<void> setupServiceLocator() async {
   getIt.registerSingleton<AuthUseCase>(AuthUseCase(getIt<AuthRepository>()));
 
   // Auth BLoC
-  getIt.registerSingleton<AuthBloc>(
-    AuthBloc(
-      authUseCase: getIt<AuthUseCase>(),
-    ),
-  );
+  getIt.registerSingleton<AuthBloc>(AuthBloc(authUseCase: getIt<AuthUseCase>()));
 
   // Dashboard Data Sources
   getIt.registerSingleton<RemoteTaskDataSource>(
@@ -108,10 +120,18 @@ Future<void> setupServiceLocator() async {
   );
 
   // Dashboard BLoC
+  // Theme Cubit (reads persisted preference)
+  getIt.registerSingleton<ThemeCubit>(ThemeCubit(prefs: getIt<SharedPreferences>()));
+
+  // ConnectivityBloc (global connectivity state)
+  getIt.registerSingleton<ConnectivityBloc>(
+    ConnectivityBloc(connectivity: getIt<Connectivity>()),
+  );
+
+  // Dashboard BLoC (TaskBloc no longer listens to connectivity directly)
   getIt.registerSingleton<TaskBloc>(
     TaskBloc(
       dashboardUseCase: getIt<DashboardUseCase>(),
-      networkInfo: getIt<NetworkInfo>(),
     ),
   );
 }
