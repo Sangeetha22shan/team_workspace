@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:team_workspace/injection/service_locator.dart';
 import 'package:team_workspace/core/widgets/app_snackbar.dart';
-import 'package:team_workspace/core/widgets/custom_text_form_field.dart';
 import 'package:team_workspace/core/widgets/custom_dropdown_form_field.dart';
+import 'package:team_workspace/core/widgets/custom_text_form_field.dart';
+import 'package:team_workspace/injection/service_locator.dart';
+
 import '../../domain/entities/task.dart';
 import '../../domain/usecases/dashboard_usecase.dart';
 import '../bloc/task_bloc.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
 class CreateTaskPage extends StatefulWidget {
   const CreateTaskPage({Key? key}) : super(key: key);
@@ -18,8 +19,8 @@ class CreateTaskPage extends StatefulWidget {
 
 class _CreateTaskPageState extends State<CreateTaskPage> {
   final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
+  late final _titleController;
+  late final _descriptionController;
   String _priority = 'Medium';
   String _assignedTo = 'Unassigned';
   DateTime _dueDate = DateTime.now().add(const Duration(days: 7));
@@ -27,9 +28,10 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
 
   late final DashboardUseCase _useCase;
 
-
   @override
   void initState() {
+    _titleController = TextEditingController();
+    _descriptionController = TextEditingController();
     super.initState();
     _useCase = getIt<DashboardUseCase>();
   }
@@ -68,18 +70,24 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
 
     try {
       final result = await _useCase.createTask(task: newTask);
-      result.fold((failure) {
-        AppSnackBar.show(
-          context,
-          'Failed to create: ${failure.message}',
-          type: AppSnackBarType.error,
-        );
-        }, (task) {
-
-        context.read<TaskBloc>().add(AddTaskToStateEvent(task: task));
-        AppSnackBar.show(context, 'Task created', type: AppSnackBarType.success);
-        Navigator.of(context).pop(task);
-      });
+      result.fold(
+        (failure) {
+          AppSnackBar.show(
+            context,
+            'Failed to create: ${failure.message}',
+            type: AppSnackBarType.error,
+          );
+        },
+        (task) {
+          context.read<TaskBloc>().add(AddTaskToStateEvent(task: task));
+          AppSnackBar.show(
+            context,
+            'Task created',
+            type: AppSnackBarType.success,
+          );
+          Navigator.of(context).pop(task);
+        },
+      );
     } catch (e) {
       AppSnackBar.show(
         context,
@@ -94,10 +102,7 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Task'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Create Task'), centerTitle: true),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -148,7 +153,9 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
                       text: DateFormat('yyyy-MM-dd').format(_dueDate),
                     ),
                     validator: (v) {
-                      if (_dueDate.isBefore(DateTime.now().subtract(const Duration(days: 1)))) {
+                      if (_dueDate.isBefore(
+                        DateTime.now().subtract(const Duration(days: 1)),
+                      )) {
                         return 'Due date must be in the future';
                       }
                       return null;
@@ -162,7 +169,9 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
                 height: 48,
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _onSave,
-                  child: _isSaving ? const CircularProgressIndicator() : const Text('Create'),
+                  child: _isSaving
+                      ? const CircularProgressIndicator()
+                      : const Text('Create'),
                 ),
               ),
             ],
@@ -172,5 +181,3 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
     );
   }
 }
-
-

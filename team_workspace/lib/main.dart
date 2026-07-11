@@ -1,13 +1,12 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:team_workspace/core/analytics/analytics_service.dart';
 import 'package:team_workspace/core/network/connectivity_bloc.dart';
 import 'package:team_workspace/core/theme/theme_cubit.dart';
-import 'package:team_workspace/core/analytics/analytics_service.dart';
-
+import 'package:team_workspace/core/widgets/app_snackbar.dart';
 import 'package:team_workspace/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:team_workspace/features/auth/presentation/pages/login_page.dart';
-
 import 'package:team_workspace/injection/service_locator.dart';
 
 import 'features/dashboard/presentation/bloc/task_bloc.dart';
@@ -36,17 +35,14 @@ class _TeamWorkspaceAppState extends State<TeamWorkspaceApp> {
     return MultiBlocProvider(
       providers: [
         BlocProvider<AuthBloc>(
-          create: (context) => getIt<AuthBloc>()..add(const AuthCheckStatusEvent()),
+          create: (context) =>
+              getIt<AuthBloc>()..add(const AuthCheckStatusEvent()),
         ),
-        BlocProvider<TaskBloc>(
-          create: (context) => getIt<TaskBloc>(),
-        ),
+        BlocProvider<TaskBloc>(create: (context) => getIt<TaskBloc>()),
         BlocProvider<ConnectivityBloc>(
           create: (context) => getIt<ConnectivityBloc>(),
         ),
-        BlocProvider<ThemeCubit>(
-          create: (context) => getIt<ThemeCubit>(),
-        ),
+        BlocProvider<ThemeCubit>(create: (context) => getIt<ThemeCubit>()),
       ],
       child: BlocBuilder<ThemeCubit, ThemeMode>(
         builder: (context, themeMode) {
@@ -54,51 +50,38 @@ class _TeamWorkspaceAppState extends State<TeamWorkspaceApp> {
             title: 'Team Workspace',
             debugShowCheckedModeBanner: false,
             theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: Colors.blue,
-              ),
+              colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
               useMaterial3: true,
             ),
-            darkTheme: ThemeData.dark().copyWith(
-              useMaterial3: true,
-            ),
+            darkTheme: ThemeData.dark().copyWith(useMaterial3: true),
             themeMode: themeMode,
-            home: MultiBlocListener(
-              listeners: [
-                // Listen to connectivity changes and dispatch to interested blocs
-                BlocListener<ConnectivityBloc, ConnectivityState>(
-                  listener: (context, state) {
-                    final isOnline = state is ConnectivityConnected;
-                    // Inform TaskBloc about connectivity changes
-                    context.read<TaskBloc>().add(ConnectivityChangedEvent(isOnline));
-                    // Log connectivity change to analytics if available
-                    final analytics = getIt.isRegistered<AnalyticsService>() ? getIt<AnalyticsService>() : null;
-                    analytics?.logEvent('connectivity_change', parameters: {'is_online': isOnline});
-                  },
-                ),
-              ],
+            home: BlocListener<ConnectivityBloc, ConnectivityState>(
+              listener: (context, state) {
+                final isOnline = state is ConnectivityConnected;
+                AppSnackBar.show(
+                  context,
+                  isOnline ? "You are Online" : "You are Offline",
+                  type: isOnline
+                      ? AppSnackBarType.success
+                      : AppSnackBarType.error,
+                );
+                final analytics = getIt.isRegistered<AnalyticsService>()
+                    ? getIt<AnalyticsService>()
+                    : null;
+                analytics?.logEvent(
+                  'connectivity_change',
+                  parameters: {'is_online': isOnline},
+                );
+              },
               child: BlocBuilder<AuthBloc, AuthState>(
-                builder: (context, state) {
-                  if (state is AuthAuthenticatedState) {
-                    return BlocBuilder<ConnectivityBloc, ConnectivityState>(
-                      builder: (context, connState) {
-                        final isOnline = connState is ConnectivityConnected;
-                        return DashboardPage(isOnline: isOnline);
-                      },
-                    );
-                  }
-                  return const LoginPage();
-                },
+                builder: (context, state) => state is AuthAuthenticatedState
+                    ? const DashboardPage()
+                    : const LoginPage(),
               ),
             ),
             routes: {
               '/login': (context) => const LoginPage(),
-              '/dashboard': (context) => BlocBuilder<ConnectivityBloc, ConnectivityState>(
-                builder: (context, connState) {
-                  final isOnline = connState is ConnectivityConnected;
-                  return DashboardPage(isOnline: isOnline);
-                },
-              ),
+              '/dashboard': (context) => DashboardPage(),
             },
           );
         },

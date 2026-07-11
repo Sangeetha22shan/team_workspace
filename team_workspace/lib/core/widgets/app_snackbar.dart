@@ -9,7 +9,7 @@ class AppSnackBar {
     BuildContext context,
     String message, {
     AppSnackBarType type = AppSnackBarType.success,
-    Duration duration = const Duration(milliseconds: 800),
+    Duration duration = const Duration(milliseconds: 2000),
   }) {
     final backgroundColor =
         type == AppSnackBarType.success ? Colors.green : Colors.red;

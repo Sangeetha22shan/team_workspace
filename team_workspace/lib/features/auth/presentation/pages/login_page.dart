@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:team_workspace/core/utils/validators.dart';
+import 'package:team_workspace/core/widgets/app_snackbar.dart';
+import 'package:team_workspace/core/widgets/custom_text_form_field.dart';
 import 'package:team_workspace/features/auth/presentation/pages/signup_page.dart';
 
-
 import '../bloc/auth_bloc.dart';
-import 'package:team_workspace/core/utils/validators.dart';
-import 'package:team_workspace/core/widgets/custom_text_form_field.dart';
-import 'package:team_workspace/core/widgets/app_snackbar.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -16,9 +15,18 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  late final TextEditingController _emailController;
+
+  late final TextEditingController _passwordController;
+
   final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    _emailController = TextEditingController();
+    _passwordController = TextEditingController();
+    super.initState();
+  }
 
   @override
   void dispose() {
@@ -30,10 +38,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Team Workspace'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Team Workspace'), centerTitle: true),
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticatedState) {
@@ -62,26 +67,16 @@ class _LoginPageState extends State<LoginPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(height: 60),
-                const Icon(
-                  Icons.work,
-                  size: 80,
-                  color: Colors.blue,
-                ),
+                const Icon(Icons.work, size: 80, color: Colors.blue),
                 const SizedBox(height: 40),
                 const Text(
                   'Welcome Back',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 const Text(
                   'Login to your account',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey,
-                  ),
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
                 const SizedBox(height: 40),
                 CustomTextFormField(
@@ -106,19 +101,20 @@ class _LoginPageState extends State<LoginPage> {
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
-                        onPressed:
-                        state is AuthLoadingState ? null : _handleLogin,
+                        onPressed: state is AuthLoadingState
+                            ? null
+                            : _handleLogin,
                         child: state is AuthLoadingState
                             ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                          ),
-                        )
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
                             : const Text('Login'),
                       ),
                     );

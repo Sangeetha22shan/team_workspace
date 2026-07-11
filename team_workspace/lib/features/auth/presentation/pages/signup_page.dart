@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:team_workspace/core/utils/validators.dart';
+import 'package:team_workspace/core/widgets/app_snackbar.dart';
+import 'package:team_workspace/core/widgets/custom_text_form_field.dart';
 
 import '../bloc/auth_bloc.dart';
-import 'package:team_workspace/core/utils/validators.dart';
-import 'package:team_workspace/core/widgets/custom_text_form_field.dart';
-import 'package:team_workspace/core/widgets/app_snackbar.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({Key? key}) : super(key: key);
@@ -14,11 +14,19 @@ class SignUpPage extends StatefulWidget {
 }
 
 class _SignUpPageState extends State<SignUpPage> {
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
+  late final _nameController;
+  late final _emailController;
+  late final _passwordController;
+  late final _confirmPasswordController;
+  late final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    _nameController = TextEditingController();
+    _emailController = TextEditingController();
+    _passwordController = TextEditingController();
+    super.initState();
+  }
 
   @override
   void dispose() {
@@ -32,10 +40,7 @@ class _SignUpPageState extends State<SignUpPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Account'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Create Account'), centerTitle: true),
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticatedState) {
@@ -66,18 +71,12 @@ class _SignUpPageState extends State<SignUpPage> {
                 const SizedBox(height: 40),
                 const Text(
                   'Create Your Account',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 const Text(
                   'Join Team Workspace',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey,
-                  ),
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
                 const SizedBox(height: 40),
                 CustomTextFormField(
@@ -113,7 +112,10 @@ class _SignUpPageState extends State<SignUpPage> {
                   labelText: 'Confirm Password',
                   prefixIcon: const Icon(Icons.lock),
                   obscureText: true,
-                  validator: (value) => Validator.validateConfirmPassword(value, _passwordController.text),
+                  validator: (value) => Validator.validateConfirmPassword(
+                    value,
+                    _passwordController.text,
+                  ),
                 ),
                 const SizedBox(height: 32),
                 BlocBuilder<AuthBloc, AuthState>(
@@ -122,19 +124,20 @@ class _SignUpPageState extends State<SignUpPage> {
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
-                        onPressed:
-                        state is AuthLoadingState ? null : _handleSignUp,
+                        onPressed: state is AuthLoadingState
+                            ? null
+                            : _handleSignUp,
                         child: state is AuthLoadingState
                             ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                          ),
-                        )
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
                             : const Text('Sign Up'),
                       ),
                     );

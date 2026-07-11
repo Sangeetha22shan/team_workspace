@@ -26,7 +26,20 @@ class GetTasksEvent extends TaskEvent {
   List<Object?> get props => [page, limit, lastId];
 }
 
+class GetPassedTasksEvent extends TaskEvent {
+  final int? page;
+  final int limit;
+  final int? lastId;
 
+  const GetPassedTasksEvent({
+    this.page,
+    required this.limit,
+    this.lastId,
+  });
+
+  @override
+  List<Object?> get props => [page, limit, lastId];
+}
 
 class SearchTasksEvent extends TaskEvent {
   final String query;
@@ -176,6 +189,7 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
     required this.dashboardUseCase,
   }) : super(const TaskInitialState()) {
     on<GetTasksEvent>(_onGetTasks);
+    on<GetPassedTasksEvent>(_onGetPassedTasks);
     on<SearchTasksEvent>(_onSearchTasks);
     on<ResetTasksEvent>(_onReset);
     on<UpdateTaskEvent>(_onUpdateTask);
@@ -262,6 +276,68 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
         );
      }
 
+
+     Future<void> _onGetPassedTasks(
+         GetPassedTasksEvent event,
+         Emitter<TaskState> emit,
+         ) async {
+       if (state is TaskLoadedState) {
+         final currentState = state as TaskLoadedState;
+         if (currentState.hasReachedMax) return;
+         // Show loading indicator for pagination
+         emit(currentState.copyWith(isLoadingMore: true));
+       }
+
+       // Only emit loading state when we don't already have loaded tasks
+       if (state is! TaskLoadedState) {
+         emit(const TaskLoadingState());
+       }
+
+       final result = await dashboardUseCase.getTasks(
+         page: event.page,
+         limit: event.limit,
+         lastId: event.lastId,
+       );
+
+        result.fold(
+              (failure) => emit(
+            TaskErrorState(
+              message: failure.message,
+              code: failure.code,
+            ),
+          ),
+              (List<Task> tasks) {
+            // Filter for completed tasks only
+            final passedTasks = tasks.where((task) => task.status == 'Completed').toList();
+
+            if (state is TaskLoadedState) {
+              final currentState = state as TaskLoadedState;
+              // Append new passed tasks to existing tasks
+              final updatedTasks = [...currentState.tasks, ...passedTasks];
+               emit(
+                   TaskLoadedState(
+                   tasks: updatedTasks,
+                   // If returned list is smaller than requested limit, we've reached the end
+                   hasReachedMax: passedTasks.isEmpty || passedTasks.length < event.limit,
+                   currentPage: event.page ?? 1,
+                   isLoadingMore: false,
+                 ),
+               );
+            } else {
+               // Load passed tasks in newest-first order
+               emit(
+                 TaskLoadedState(
+                   tasks: passedTasks,
+                   // If returned list is smaller than requested limit, we've reached the end
+                   hasReachedMax: passedTasks.isEmpty || passedTasks.length < event.limit,
+                   currentPage: event.page ?? 1,
+                   isLoadingMore: false,
+                 ),
+               );
+            }
+          },
+        );
+     }
 
      Future<void> _onSearchTasks(
          SearchTasksEvent event,

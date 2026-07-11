@@ -15,9 +15,8 @@ import 'create_task_page.dart';
 
 
 class DashboardPage extends StatefulWidget {
-  final bool isOnline;
 
-  const DashboardPage({Key? key, this.isOnline = true}) : super(key: key);
+  const DashboardPage({Key? key}) : super(key: key);
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -146,28 +145,6 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
       body: Column(
         children: [
-          // Offline indicator (provided by parent)
-          if (!widget.isOnline)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: Colors.orange,
-              child: Row(
-                children: [
-                  const Icon(Icons.cloud_off, color: Colors.white, size: 20),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'Offline - Showing cached data',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           // Search Widget
           SearchTasksWidget(
             key: _searchWidgetKey,
