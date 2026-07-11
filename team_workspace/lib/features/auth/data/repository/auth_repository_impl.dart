@@ -74,6 +74,7 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       await firebaseAuthDataSource.logout();
       await localAuthDataSource.clearCache();
+
       return const Right(null);
     } on AuthenticationException catch (e) {
       return Left(AuthenticationFailure(message: e.message, code: e.code));

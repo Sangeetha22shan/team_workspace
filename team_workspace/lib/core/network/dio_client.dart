@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:logger/logger.dart';
 
+import '../constants/app_constants.dart';
+
 class DioClient {
   late Dio _dio;
   final Logger _logger = Logger();
@@ -13,7 +15,7 @@ class DioClient {
   void _initializeDio(String baseUrl) {
     _dio = Dio(
       BaseOptions(
-        baseUrl: baseUrl,
+        baseUrl: AppConstants.baseUrl,
         connectTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(seconds: 30),
         contentType: 'application/json',
